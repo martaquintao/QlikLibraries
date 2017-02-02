@@ -1,0 +1,69 @@
+// General Functions
+
+// This package aims to aggregate some functions that will accelerate or optimize the frontend implementation 
+// (So no data transfromation!)
+// CHANGE LOG: (Feel free to change AND LOG!)
+// 		2017.01.16 - Creation!
+//		2017.02.01 - LoadVariables now loads descriptions
+// ------------------------------------------------------------------------------------------------------------------------------
+
+
+// GenerateTableAlias - Generate an alias for a given dimension --------------------------------------------- 
+// _vDimension: Name of the Dimnsion table to clone
+// _vSubFieldName: Subtring of field names that will be changed
+// _vNewFieldName: New dimension name
+// _vReturnAlias: String with the alias of the dimenstions ()
+// Usage: 
+// 		Employee: 
+//		LOAD *
+//		FROM [$(eDataModelPath(Employee))] (qvd);
+//
+//		Call GenerateTableAlias('Employee','Employee','Boss',vEmployeeAsBoss);
+//
+//		Boss:
+//		LOAD $(vEmployeeAsBoss)
+//		RESIDENT Employee;
+// ----------------------------------------------------------------------------------------------------------
+SUB GenerateTableAlias(_vDimension, _vSubFieldName, _vNewFieldName, _vReturnAlias)
+
+	LET iNumFields 	= NoOfFields('$(_vDimension)');
+    LET vFieldWithRename = '';
+    
+    FOR i=1 to $(iNumFields)
+		vFieldWithRename = '$(vFieldWithRename)
+        '&FieldName($(i),'$(_vDimension)')&' as '& Replace(FieldName($(i),'$(_vDimension)'),'$(_vSubFieldName)','$(_vNewFieldName)')&If($(i)=$(iNumFields),'',',') 
+	NEXT;        
+
+	_vReturnAlias = '$(vFieldWithRename)';
+END SUB;
+
+// LoadExcelVariablesFile - Load an excel and convert the given columns into variables ----------------------
+// _vVariablesSource: Name of the file and the sheet where the variables are
+// _NameColumn: Column name where the name of the variable is stored
+// _DefinitionColumn: Column name where the definition of the variable is stored
+// _DescriptionColumn: Column name where the description of the variable is stored
+// Usage: Just call it to load variables
+// ----------------------------------------------------------------------------------------------------------
+SUB LoadVariablesFile(_vVariablesSource, _NameColumn, _DefinitionColumn,_DescriptionColumn)
+	
+	Variables:
+	LOAD 
+		$(_NameColumn)								as Name, 
+		$(_DefinitionColumn)						as Definition, 
+		$(_DescriptionColumn)						as Description
+	FROM [$(eResourcesPath($(_vVariablesSource).xlsx))]
+	(ooxml, embedded labels, table is $(_vVariablesSource));
+
+	// Build import variables
+	LET vNumberOfRows = NoOfRows('Variables');
+
+	FOR i = 0 to (vNumberOfRows - 1)
+		LET vVariableName 		= Peek('Name',i,'Variables');
+		LET $(vVariableName)	= Peek('Definition',i,'Variables');
+	NEXT;
+
+	LET vNumberOfRows 	= Null();
+	LET vVariableName	= Null();
+	LET i				= Null();
+	
+END SUB;

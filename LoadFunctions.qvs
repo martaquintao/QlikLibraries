@@ -1,0 +1,164 @@
+// Load Functions
+
+// This package aims to aggregate some functions that are recurrently used when loading and saving data
+// (So no data transfromation!)
+// CHANGE LOG: (Feel free to change AND LOG!)
+// 		2017.01.09 - Creation!
+// 		2017.01.16 - Added comments
+// ------------------------------------------------------------------------------------------------------------------------------
+
+SET _Mode = 1; // Just to be safe!
+
+// SetMode - Always start with SetMode! This will set the needed folder paths variables in place ------------
+// _Mode:  1 - Extractor App | 2 - DataModel App | 3 - FrontEnd App 
+// _ResourceFolder: Path/lib to the folder that holds data resources
+// _StgFolder: Path/lib to the folder that holds the staging
+// _DMFolder: Path/lib to the folder that holds data model
+// _Qlik: 1 - Qlik Sense | 2 - QlikView
+// Usage:
+//		SET vCaminhoScripts 						= 'BIScripts$(vSetEnv)/';
+//		SET vCaminhoRecursos 						= 'BIDataResources$(vSetEnv)/';
+//		SET vCaminhoQVDDados						= 'BIStagingArea$(vSetEnv)/';
+//		SET vCaminhoQVDModelo 						= 'BIDataModelArea$(vSetEnv)/';
+//
+// 		Call SetMode(2,vCaminhoRecursos,vCaminhoQVDDados,vCaminhoQVDModelo,1);
+// ----------------------------------------------------------------------------------------------------------
+SUB SetMode(_Mode,_ResourceFolder,_StgFolder,_DMFolder,_Qlik)
+	
+	LET _PathStart						= If(_Qlik = 2,'..','lib:/');
+
+	LET eResourcesPath					= '$(_PathStart)/$(_ResourceFolder)$1';
+	IF _Mode = 1 THEN
+		LET eStagingPath				= '$(_PathStart)/$(_StgFolder)$1.qvd';
+        SET vReadFolderVariable			= 'eResourcesPath';
+    	SET vStorageFolderVariable		= 'eStagingPath';
+    ELSEIF _Mode = 2 THEN
+		LET eStagingPath				= '$(_PathStart)/$(_StgFolder)$1.qvd';
+		LET eDataModelPath				= '$(_PathStart)/$(_DMFolder)$1.qvd';
+        SET vReadFolderVariable			= 'eStagingPath';
+    	SET vStorageFolderVariable		= 'eDataModelPath';
+    ELSEIF _Mode = 3 THEN
+		LET eDataModelPath				= '$(_PathStart)/$(_DMFolder)$1.qvd';
+        SET vReadFolderVariable			= 'eDataModelPath';
+    	SET vStorageFolderVariable		= 'eDataModelPath';
+    END IF;
+    
+    LET vTableTimeStart = now();
+	SET vCount = 0;
+    
+END SUB;
+
+// Benchmarking -----------------------------------------------------------------------------------------------------------------
+
+// MarkTableReloadStartTime - Reset the countdown timer for Benchmarking. Use before loading new source -----
+// Usage: It''s so simple you won''t need any examples
+// ----------------------------------------------------------------------------------------------------------
+SUB MarkTableReloadStartTime	
+	
+    LET vCount						= $(vCount) + 1;
+    LET vTableStartTime_$(vCount) 	= now();
+    	
+ENDSUB;
+
+
+// RegisterLoadedTable - Register a new loaded source for Benchmarking --------------------------------------
+// _TableName: The name of the table (what else?)
+// Usage: It''s so simple you won''t need any examples. Just call it when you finished loading your source table.
+// ----------------------------------------------------------------------------------------------------------
+SUB RegisterLoadedTable(_vTableName)
+	//Benchmarking
+	LET vTableEndTime_$(vCount) = now();
+	LET vTableName_$(vCount) 	= _vTableName;//TableName(0);
+	LET vTableRows_$(vCount) 	= NoOfRows('$(vTableName_$(vCount))');
+	LET vTableFields_$(vCount) 	= NoOfFields('$(vTableName_$(vCount))');
+    
+    TRACE $(vTableName_$(vCount)) ($(vCount))registered...;
+END SUB;
+
+// InfoTables - Generate Table with the Benchmarked Data ----------------------------------------------------
+// Usage: It''s so simple you won''t need any examples. Just call it if you benchmarked.
+// ----------------------------------------------------------------------------------------------------------
+SUB InfoTables
+
+	TRACE;
+	TRACE Building benchmark table...;
+	TRACE $(vCount) tables to process;
+	
+	FOR i = 1 to $(vCount)
+		
+		TRACE TableName: $(vTableName_$(i)) | Imported Rows: $(vTableRows_$(i)) | Reload Start Time: $(vTableStartTime_$(i)) | Reload End Time: $(vTableEndTime_$(i));
+		BenchmarkData:
+	  	LOAD 
+	  		'$(vTableName_$(i))' 		as TableName,
+	  		$(vTableRows_$(i)) 			as ImportedRows,
+	  		$(vTableFields_$(i)) 		as ImportedFields,
+	  		$(i) 						as TableNumber,
+	  		'$(vTableStartTime_$(i))' 	as ReloadStart,
+	  		'$(vTableEndTime_$(i))' 	as ReloadEnd
+	  	AUTOGENERATE 1;
+	NEXT;
+	
+	//Clean variables
+	Trace >>>> Finishing...;
+	
+	FOR i = 1 to $(vCount)
+		SET vTableName_$(i) =;
+		SET vTableRows_$(i) =;
+		SET vTableFields_$(i) =;
+		SET vTableStartTime_$(i) =;
+		SET vTableEndTime_$(i) =;
+	NEXT i
+		SET i =;
+		SET vCount =;
+ENDSUB;
+// End of Benchmarking ----------------------------------------------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------------------------------------
+
+
+// Storing ---------------------------------------------------------------------------------------------------------------------- 
+
+// StoreTable - Store the table to the parameterized location and drop if you will (must SetMode!) ----------
+// _vTableName: The name of the table 
+// _iDropTable: 1 if you want to drop it like it''s hot (0 otherwise)
+// Usage: It''s so simple you won''t need any examples. Just call it when you want to store a table.
+// ----------------------------------------------------------------------------------------------------------
+SUB StoreTable(_vTableName,_iDropTable)
+
+	TRACE > Storing table $(_vTableName) ...;
+ 	STORE $(_vTableName) INTO $($(vStorageFolderVariable)($(_vTableName)));
+	
+	IF _iDropTable = 1  THEN
+		TRACE > Dropping table $(_vTableName) ...;
+		DROP TABLE $(_vTableName);
+	END IF;
+	
+ENDSUB;
+
+// StoreAndRegisterSTG - In just one step, store and register a table to Benchmarking -----------------------
+// Usefull for Extractor Apps (only)! You wouldn''t save an incomplete Data Model would you?! ;)
+// _vTableName: The name of the table 
+// _iDropTable: 1 if you want to drop it (0 otherwise)
+// Usage: It''s so simple you won''t need any examples. Just call it when you want to Register and Store a table.
+// ----------------------------------------------------------------------------------------------------------
+SUB RegisterAndStoreSTG(_vTableName,_iDropTable)
+	
+    Call RegisterLoadedTable(_vTableName);
+    Call StoreTable(_vTableName,_iDropTable);
+
+END SUB;
+
+// SaveNewDataModel - In just one step, go over the Benchmarked tables and Store and Drop them --------------
+// That''s the way to save a Data Model!
+// Usage: It''s so simple you won''t need any examples. Just call it when you''ve finished the Data Model
+// ----------------------------------------------------------------------------------------------------------
+// For DataModel, we usually load on the go
+SUB SaveNewDataModel
+	
+    FOR i = 1 to $(vCount)
+	 	Call StoreTable('$(vTableName_$(i))',1);
+        TRACE Saved Table $(vTableName_$(i))...;
+	NEXT;
+
+END SUB;
+// End of Storing --------------------------------------------------------------------------------------------------------------- 
+// ------------------------------------------------------------------------------------------------------------------------------

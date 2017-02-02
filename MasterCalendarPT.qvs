@@ -1,0 +1,320 @@
+// Setting The Master Calendar - PT Version
+
+// This script will provide a funcion for setting a Master calendar (Civil and Fiscal Year)
+// on a given factual table name.
+// The corrensponding set analysis for Civil and fiscal years will be made availlable at calling
+// CHANGE LOG: (Feel free to change AND LOG!)
+// 		2017.01.16 - Creation!
+//		2017.02.01 - Calendar now has a calendarAsOf to load if activated
+// ------------------------------------------------------------------------------------------------------------------------------
+
+//Set Variables
+SET vIgnorarDimensoes 			= ;
+SET vOffsetMesInicioAnoFiscal 	= -6;
+
+SUB SetMasterCalendar(_vFactName,_CreateAsOf)
+
+	TempIntervaloDatas:
+	LOAD Num(Min(%IDData)) as DataMin,
+		 Num(Max(%IDData)) as DataMax
+	RESIDENT $(_vFactName)
+	WHERE Not(IsNull(Date#(%IDData)));
+
+	LET vDataMin = peek('DataMin', 0, 'TempIntervaloDatas');
+	LET vDataMax = peek('DataMax', 0, 'TempIntervaloDatas');
+
+	//LET vDataMax = Num(MakeDate(2017,12));
+
+	DROP TABLE TempIntervaloDatas;
+
+	TempCalendario:
+	LOAD $(vDataMin) + RowNo() - 1 			as %ID_Data,
+		 Date($(vDataMin) + RowNo() - 1)	as Data
+	AUTOGENERATE $(vDataMax) - $(vDataMin) + 1;
+	
+	//Call StoreTable('TempCalendario',0)
+
+	LET vTipoAno = '=If(CodigoTipoAno = ' & chr(39) & 'F' & chr(39) & ',' & chr(39) & 'AnoFiscal' & chr(39) & ',' & chr(39) & 'Ano' & chr(39) & ')';
+	
+	Calendario:
+	LOAD Date(%ID_Data)										as %IDData,
+		 AutoNumber(Year(Data)&'|'&Num(Month(Data)))		as %IDAnoMes,
+		 AutoNumber(Year(Data)&'|'&Ceil(Month(Data) / 3))	as %IDAnoTrimestre,
+		 Data,
+		 Day(Data) 											as Dia,
+		 Week(Data)											as Semana,
+		 Num(WeekDay(Data))									as DiaDaSemana,
+		 WeekDay(Data)										as DiaDaSemanaDesc,
+		 Week(Data)&'-'&Year(Data)							as SemanaAno,
+		 Div(Day(Data)+6,7) 								as SemanaMes,
+		 Month(Data)										as Mes,
+		 Num(Month(Data))									as MesNum,
+		 Capitalize(Date(Data,'MMMM'))						as MesDesc,
+		 Capitalize(Date(Data,'MMM'))						as MesDescCurta,
+		 'Q ' & Ceil(Month(Data)/4) 						as Quadrimeste,
+		 Ceil(Month(Data) / 4)&'º Q' 						as QuadrimesteAlternativo,
+		 Ceil(Month(Data) / 3)								as Trimestre,
+		 Ceil(Month(Data) / 3)&'º Trimestre'				as TrimestreCurto,
+		 Ceil(Month(Data) / 3)&'º T'						as TrimestreDescCurta,
+		 Num(Date(Data,'YYYYMM')&'')						as AnoMesNum,
+		 Date(Data,'YYYY-MM')								as AnoMes,
+		 Year(Data)&'-'&Capitalize(date(Data,'MMMM'))		as AnoMesDesc,
+		 Year(Data)&'-'&Capitalize(date(Data,'MMM'))		as AnoMesDescCurta,
+		 Date(Data,'MM-YYYY')								as AnoMesAlterantivo,
+		 Capitalize(Date(Data,'MMMM'))&'-'&Year(Data)		as AnoMesDescAlternativa,
+		 Capitalize(Date(Data,'MMM'))&'-'&Year(Data)		as AnoMesDescAlternativaCurta,
+		 Year(Data)											as Ano,
+		 Year(AddMonths(Data,$(vOffsetMesInicioAnoFiscal)))	as AnoFiscal
+	RESIDENT TempCalendario
+	ORDER BY Data ASC;
+
+	DROP TABLE TempCalendario;
+	//CALL StoreTable('Calendario',0);
+
+	// This section is manual, but Comment and/or Uncomment to choose as of version(s)
+	IF _CreateAsOf = 1 THEN
+		//Date as Of
+		AsOfDDataAnoMes: //TTD
+//		LOAD DISTINCT	
+//			 %IDAnoMes - IterNo()+1								as %IDAnoMes
+//			 ,%IDAnoMes											as DisplayIDAnoMes
+//			 ,AnoMesNum											as DisplayAnoMesNum
+//			 ,AnoMesDesc										as DisplayAnoMesDesc
+//			 ,AnoMesDescCurta									as DisplayAnoMesDescCurta
+//			 ,MesNum											as DisplayMesNum
+//			 ,MesDesc											as DisplayMesDesc
+//			 ,MesDescCurta										as DisplayMesDescCurta
+//			 ,Ano												as DisplayAno
+//			 ,1													as DisplayCalendarioTTD
+//			 ,0													as DisplayCalendarioYTD
+//		RESIDENT Calendario
+//		WHILE 1 + IterNo() <= %IDAnoMes;
+//
+//		Concatenate(AsOfDDataAnoMes) //YTD
+		LOAD DISTINCT	
+			 %IDAnoMes - IterNo()+1								as %IDAnoMes
+			 ,%IDAnoMes											as DisplayIDAnoMes
+			 ,AnoMesNum											as DisplayAnoMesNum
+			 ,AnoMesDesc										as DisplayAnoMesDesc
+			 ,AnoMesDescCurta									as DisplayAnoMesDescCurta
+			 ,MesNum											as DisplayMesNum
+			 ,MesDesc											as DisplayMesDesc
+			 ,MesDescCurta										as DisplayMesDescCurta
+			 ,Ano												as DisplayAno
+			 ,0													as DisplayCalendarioTTD
+			 ,1													as DisplayCalendarioYTD
+		RESIDENT Calendario
+		WHILE MesNum - IterNo() +1 > 0;
+	END IF;
+	
+END SUB;
+
+//******** CLEAN DATE FILTERS ********
+LET vSetLimparFiltrosData 	= 	'%IDAnoMes 				= ,' & Chr(10) &
+								'Data 					= ,' & Chr(10) &
+								Chr(36) & '(vTipoAno)	= ,' & Chr(10) &
+								'Semana 				= ,' & Chr(10) &
+								'Trimestre 				= ,' & Chr(10) &
+								'AnoMesNum 				= ,' & Chr(10) &
+								'MesDesc				= ,' & Chr(10) & 
+								'MesDescCurta			= ,' & Chr(10) & 
+                                'Mes 					=';
+//*************** YEAR ***************
+LET vSetYTD 				= 	'%IDAnoMes 				= {"<=' & Chr(36) & '(=Max(%IDAnoMes))"},' & Chr(10) &
+								'Data 					= {"<=' & Chr(36) & '(=Max(Data))"},' & Chr(10) &
+								Chr(36) & '(vTipoAno) 	= {' & Chr(36) & '(=Max('& Chr(36) & '(vTipoAno)))},' & Chr(10) &
+								'Semana 				= ,' & Chr(10) &
+								'Trimestre 				= ,' & Chr(10) &
+								'AnoMesNum 			    = ,' & Chr(10) &
+								'MesDesc				= ,' & Chr(10) & 
+								'MesDescCurta			= ,' & Chr(10) & 
+                                'Mes =';
+			  
+LET vSetAnoAnteriorYTD 		= 	'%IDAnoMes 				= {"<=' & Chr(36) & '(=Max(%IDAnoMes) - 12)"},' & Chr(10) &
+								Chr(36) & '(vTipoAno) 	= {' & Chr(36) & '(=Max('& Chr(36) & '(vTipoAno))-1)},' & Chr(10) &
+								'Semana		 			= ,' & Chr(10) &
+								'Trimestre 				= ,' & Chr(10) &
+								'AnoMesNum 				= ,' & Chr(10) &
+								'MesDesc				= ,' & Chr(10) & 
+								'MesDescCurta			= ,' & Chr(10) & 
+                                'Mes =';
+			  
+LET vSetMesAnteriorYTD 		= 	'%IDAnoMes 				= {"<=' & Chr(36) & '(=Max(%IDAnoMes) - 1)"},' & Chr(10) &
+								Chr(36) & '(vTipoAno) 	= {' & Chr(36) & '(=Max('& Chr(36) & '(vTipoAno)))},' & Chr(10) &
+								'Semana		 			= ,' & Chr(10) &
+								'Trimestre 				= ,' & Chr(10) &
+								'AnoMesNum 				= ,' & Chr(10) &
+								'MesDesc				= ,' & Chr(10) & 
+								'MesDescCurta			= ,' & Chr(10) & 
+                                'Mes =';
+
+//*************** Trimestre ***************
+
+LET vSetQTD 				=	'Trimestre 				= {' & Chr(36) & '(=Max(Trimestre))},' & Chr(10) &				
+								'Data 					= {"<=' & Chr(36) & '(=Max(Data))"},' & Chr(10) &
+								Chr(36) & '(vTipoAno) 	= {' & Chr(36) & '(=Max('& Chr(36) & '(vTipoAno)))},' & Chr(10) &
+								'Trimestre 				= ,' & Chr(10) &
+								'AnoMesNum 				= ,' & Chr(10) &
+								'Semana 				= ,' & Chr(10) &
+								'Mes 					=';	
+				
+LET vSetTrimestreAnteriorQTD = 	'Trimestre  			= {' & Chr(36) & '(=Max(Trimestre) - 1)},' & Chr(10) &
+								'Data 					= ,' & Chr(10) &
+								Chr(36) & '(vTipoAno) 	= ,' & Chr(10) &
+								'AnoMesNum 				= ,' & Chr(10) &
+								'Semana 				= ,' & Chr(10) &
+								'MesDesc				= ,' & Chr(10) & 
+								'MesDescCurta			= ,' & Chr(10) & 
+                                'Mes =';
+
+LET vSetAnoAnteriorQTD 		= 	'Trimestre 				= {' & Chr(36) & '(=Max(Trimestre) - 4)},' & Chr(10) &
+								Chr(36) & '(vTipoAno) 	= ,' & Chr(10) &
+								'Trimestre 				= ,' & Chr(10) &
+								'AnoMesNum 				= ,' & Chr(10) &
+								'Semana 				= ,' & Chr(10) &
+								'Mes 					=';
+
+//*************** MONTH ***************
+				
+LET vSetMTD 				= 	'%IDAnoMes 				= {' & Chr(36) & '(=Max(%IDAnoMes))},' & Chr(10) &
+								'Data 					= {"<=' & Chr(36) & '(=Max(Data))"},' & Chr(10) &
+								'Semana 				= ,' & Chr(10) &
+								Chr(36) & '(vTipoAno) 	= ,' & Chr(10) &
+								'Trimestre 				= ,' & Chr(10) &
+								'AnoMesNum 				= ,' & Chr(10) &
+								'MesDesc				= ,' & Chr(10) & 
+								'MesDescCurta			= ,' & Chr(10) & 
+                                'Mes 					=';
+
+
+LET vSetMesAnteriorMTD 		= 	'%IDAnoMes 				= {' & Chr(36) & '(=Max(%IDAnoMes) - 1)},' & Chr(10) &
+								'Day 					= {"<=' & Chr(36) & '(=Max(' & Chr(36) & '(vSetMTD) Day))"},' & Chr(10) &
+								'Data 					= ,' & Chr(10) &				
+								Chr(36) & '(vTipoAno) 	= ,' & Chr(10) &
+								'Trimestre 				= ,' & Chr(10) &
+								'Semana 				= ,' & Chr(10) & 
+								'AnoMesNum 				= ,' & Chr(10) &
+								'Mes 					=';
+
+LET vSetAnoAnteriorMTD 		= 	'%IDAnoMes 				= {' & Chr(36) & '(=Max(%IDAnoMes) - 12)},' & Chr(10) &
+								Chr(36) & '(vTipoAno) 	= {' & Chr(36) & '(=Max('& Chr(36) & '(vTipoAno))-1)},' & Chr(10) &
+								'Semana 				= ,' & Chr(10) &
+								'Trimestre 				= ,' & Chr(10) &
+								'AnoMesNum 				= ,' & Chr(10) &
+								'MesDesc				= ,' & Chr(10) & 
+								'MesDescCurta			= ,' & Chr(10) & 
+                                'Mes =';
+
+LET vSetCompletoMTD			= 	'%IDAnoMes 				= {' & Chr(36) & '(=Max(%IDAnoMes))},' & Chr(10) &
+								Chr(36) & '(vTipoAno) 	= {' & Chr(36) & '(=Max('& Chr(36) & '(vTipoAno)))},' & Chr(10) &
+								'Day 					= ,' & Chr(10) &
+								'Semana 				= ,' & Chr(10) &
+								'Trimestre 				= ,' & Chr(10) &
+								'AnoMesNum 				= ,' & Chr(10) &
+								'Mes 					=';
+
+LET vSetAnoAnteriorFullMTD = 	'%IDAnoMes 				= {' & Chr(36) & '(=Max({<$(vIgnorarDimensoes)>}%IDAnoMes) - 12)},' & Chr(10) &
+								Chr(36) & '(vTipoAno) 	= {' & Chr(36) & '(=Max('& Chr(36) & '(vTipoAno))-1)},' & Chr(10) &
+								'Day 					= ,' & Chr(10) &
+								'Semana 				= ,' & Chr(10) &
+								'Trimestre 				= ,' & Chr(10) &
+								'AnoMesNum 				= ,' & Chr(10) &
+								'MesDesc				= ,' & Chr(10) & 
+								'MesDescCurta			= ,' & Chr(10) & 
+                                'Mes 					=';
+
+//*************** WEEK ***************
+
+LET vSetWTD 				= 	'Semana 				= {' & Chr(36) & '(=Max(Semana))},' & Chr(10) &
+								'Data 					= {"<=' & Chr(36) & '(=Max(Data))"},' & Chr(10) &
+								Chr(36) & '(vTipoAno) 	= {' & Chr(36) & '(=Max('& Chr(36) & '(vTipoAno)))},' & Chr(10) &
+								'Trimestre 				= ,' & Chr(10) &
+								'AnoMesNum 				= ,' & Chr(10) &
+								'MesDesc				= ,' & Chr(10) & 
+								'MesDescCurta			= ,' & Chr(10) & 
+                                'Mes 					=';
+
+LET vSetSemanaAnteriorWTD	= 	'Semana 				= {' & Chr(36) & '(=Max(Semana)-1)},' & Chr(10) &
+								Chr(36) & '(vTipoAno) 	= {' & Chr(36) & '(=Max('& Chr(36) & '(vTipoAno)))},' & Chr(10) &
+								'Trimestre 				= ,' & Chr(10) &
+								'AnoMesNum 				= ,' & Chr(10) &
+								'MesDesc				= ,' & Chr(10) & 
+								'MesDescCurta			= ,' & Chr(10) & 
+                                'Mes 					=';
+
+LET vSetAnoAnteriorWTD 		= 	'Semana 				= {' & Chr(36) & '(=Max(Semana))},' & Chr(10) &
+								Chr(36) & '(vTipoAno) 	= {' & Chr(36) & '(=Max('& Chr(36) & '(vTipoAno))-1)},' & Chr(10) &
+								'Trimestre 				= ,' & Chr(10) &
+								'AnoMesNum 				= ,' & Chr(10) &
+								'MesDesc				= ,' & Chr(10) & 
+								'MesDescCurta			= ,' & Chr(10) & 
+                                'Mes 					=';
+		
+//*************** OTHERS ***************
+
+LET vSetTotalADataTTD 		= 	'%IDAnoMes 				= ,' & Chr(10) &
+								'Data 					= {"<=' & Chr(36) & '(=Max(Data))"},' & Chr(10) &		
+								Chr(36) & '(vTipoAno) 	= ,' & Chr(10) &
+								'Trimestre 				= ,' & Chr(10) &
+								'Semana 				= ,' & Chr(10) &
+								'AnoMesNum 				= ,' & Chr(10) &
+								'MesDesc				= ,' & Chr(10) & 
+								'MesDescCurta			= ,' & Chr(10) & 
+                                'Mes 					=';
+				
+LET vSetAnoAnteriorTTD 	= 	'%IDAnoMes 					= {"<=' & Chr(36) & '(=Max(%IDAnoMes) - 12)"},' & Chr(10) &
+								Chr(36) & '(vTipoAno) 	= ,' & Chr(10) &
+								'Trimestre 				= ,' & Chr(10) &
+								'AnoMesNum 				= ,' & Chr(10) &
+								'Semana 				= ,' & Chr(10) & 
+								'MesDesc				= ,' & Chr(10) & 
+								'MesDescCurta			= ,' & Chr(10) & 
+                                'Mes 					=';
+				
+LET vSetRolling12 			= 	'%IDAnoMes 				= {">=' & Chr(36) & '(=Max(%IDAnoMes) - 11)<=' & Chr(36) & '(=Max(%IDAnoMes))"},' & Chr(10) &
+								'Data 					= {"<=' & Chr(36) & '(=Max(Data))"},' & Chr(10) &
+								Chr(36) & '(vTipoAno) 	= ,' & Chr(10) &
+								'Trimestre 				= ,' & Chr(10) &
+								'AnoMesNum 				= ,' & Chr(10) &
+								'Semana 				= ,' & Chr(10) & 
+								'MesDesc				= ,' & Chr(10) & 
+								'MesDescCurta			= ,' & Chr(10) & 
+                                'Mes 					=';
+				
+LET vSetAnteriorRolling12	= 	'%IDAnoMes 				= {">=' & Chr(36) & '(=Max(%IDAnoMes) - 23)<=' & Chr(36) & '(=Max(%IDAnoMes)-12)"},' & Chr(10) &
+								'Data 					=  ,' & Chr(10) &		
+								Chr(36) & '(vTipoAno) 	= {"<=' & Chr(36) & '(=Max('& Chr(36) & '(vTipoAno))-1)"},' & Chr(10) &
+								'Trimestre 				= ,' & Chr(10) &
+								'AnoMesNum 				= ,' & Chr(10) &
+								'Semana	 				= ,' & Chr(10) & 
+								'MesDesc				= ,' & Chr(10) & 
+								'MesDescCurta			= ,' & Chr(10) & 
+                                'Mes =';
+				
+LET vSetAnoCompleto			= 	'%IDAnoMes 				= ,' & Chr(10) &
+								Chr(36) & '(vTipoAno) 	= {' & Chr(36) & '(=Max('& Chr(36) & '(vTipoAno)))},' & Chr(10) &
+								'Trimestre 				= ,' & Chr(10) &
+								'Semana 				= ,' & Chr(10) & 
+								'AnoMesNum 				= ,' & Chr(10) &
+								'MesDesc				= ,' & Chr(10) & 
+								'MesDescCurta			= ,' & Chr(10) & 
+                                'Mes 					=';
+				
+LET vSetAnoCompletoTTD		= 	'%IDAnoMes 				= ,' & Chr(10) &
+								Chr(36) & '(vTipoAno) 	= {"<=' & Chr(36) & '(=Max('& Chr(36) & '(vTipoAno)))"},' & Chr(10) &
+								'Trimestre 				= ,' & Chr(10) &
+								'Semana 				= ,' & Chr(10) & 
+								'AnoMesNum 				= ,' & Chr(10) &
+								'MesDesc				= ,' & Chr(10) & 
+								'MesDescCurta			= ,' & Chr(10) & 
+                                'Mes 					=';
+				
+LET vSetAnoAnteriorCompleto  = '%IDAnoMes 				= ,' & Chr(10) &
+							   Chr(36) & '(vTipoAno) 	= {' & Chr(36) & '(=Max('& Chr(36) & '(vTipoAno))-1)},' & Chr(10) &
+							   'Trimestre 				= ,' & Chr(10) &
+							   'Semana 					= ,' & Chr(10) & 
+							   'AnoMesNum 				= ,' & Chr(10) &
+							   'MesDesc					= ,' & Chr(10) &
+							   'MesDescCurta			= ,' & Chr(10) & 
+                               'Mes 					=';
+

@@ -1,0 +1,76 @@
+// Format Parameters - PT Version
+
+// Important!!: Keep it ANSI!!
+// This package gathers the settings for your app, so that they are easy to access and change.
+// Sugested structure:
+//			// Set Automatic Environment: 
+//			SET vEnvNumSAFE								= 1; //Environment Selection (1: DEV / 2:PRE / 3:PRD)
+//			
+//			LET vDocumentTitle 							= DocumentTitle();
+//			LET vEnvDocumentTag							= SubField('$(vDocumentTitle)','_',substringcount('$(vDocumentTitle)','_')+1);
+//			SET vNumEnv 								= 	If('$(vEnvDocumentTag)' = 'DEV',1,
+//															If('$(vEnvDocumentTag)' = 'QM' ,2, $(vEnvNumSAFE)));
+//			LET vSetEnv									= Pick($(vNumEnv),'DEV','PRE','');
+//			
+//			//Repositories
+//			SET vCaminhoScripts 						= 'BIScripts$(vSetEnv)/';
+//			SET vCaminhoRecursos 						= 'BIDataResources$(vSetEnv)/';
+//			SET vCaminhoQVDDados						= 'BIStagingArea$(vSetEnv)/';
+//			SET vCaminhoQVDModelo 						= 'BIDataModelArea$(vSetEnv)/';
+//			
+//			//Includes
+//			$(Must_Include='lib://$(vCaminhoScripts)GetFormatParamsPT.qvs'); 	// Always Needed
+//			$(Must_Include='lib://$(vCaminhoScripts)LoadFunctions.qvs');		// Always Needed
+//			$(Must_Include='lib://$(vCaminhoScripts)GeneralFunctions.qvs');		// Only needed when FrontEnd
+//			$(Must_Include='lib://$(vCaminhoScripts)MasterCalendarPT.qvs');		// Only needed when FrontEnd
+//			
+// 			Call SetMode(3,vCaminhoRecursos,vCaminhoQVDDados,vCaminhoQVDModelo,1);
+// End of Sugestion
+//
+// CHANGE LOG: (Feel free to change AND LOG!)
+// 		2017.01.16 - Creation!
+//		2017.02.01 - LoadVariables now loads descriptions
+// ------------------------------------------------------------------------------------------------------------------------------
+
+SET ThousandSep='.';
+SET DecimalSep=',';
+SET MoneyThousandSep='.';
+SET MoneyDecimalSep=',';
+SET MoneyFormat='#.##0,00 €;-#.##0,00 €';
+SET TimeFormat='hh:mm:ss';
+SET DateFormat='DD-MM-YYYY';
+SET TimestampFormat='DD-MM-YYYY hh:mm:ss[.fff]';
+SET FirstWeekDay=0;
+SET BrokenWeeks=1;
+SET ReferenceDay=0;
+SET FirstMonthOfYear=1;
+SET CollationLocale='pt-PT';
+SET CreateSearchIndexOnReload=1;
+SET MonthNames='Jan;Fev;Mar;Abr;Mai;Jun;Jul;Ago;Set;Out;Nov;Dez';
+SET LongMonthNames='Janeiro;Fevereiro;Março;April;Maio;Junho;Julho;Agosto;Setembro;Outubro;Novembro;Dezembro';
+SET DayNames='Seg;Ter;Qua;Qui;Sex;Sáb;Dom';
+SET LongDayNames='Segunda;Terça;Quarta;Quinta;Sexta;Sábado;Domingo';
+
+
+// Metadata Parameters
+SET vEliminarTabelas						= 1;
+SET vSeparadorFicheiro						= '_';
+SET vMultiMappingSeparator					= '|';
+
+// Relevant Information
+LET vCurrentSheet							= '=SubField(GetActiveSheetId(),' & chr(39) & '\' & chr(39) & ',2)';
+LET vMobileApp								= '=IF(SubStringCount(Upper(ClientPlatform()),' & chr(39) & 'MOBILE' & chr(39) & ')<>0,1,0)';
+
+// Usefull Expressions
+SET eMultipleMappngValue 					= SubField(ApplyMap('$1',AutoNumberHash128($2),Null()),'$(vMultiMappingSeparator)',$3); 			// 1 - Mapping Name, 2 - Key, 3 - Position
+SET eMultipleMappngNumValue		 			= SubField(ApplyMap('$1',$2,Null()),'$(vMultiMappingSeparator)',$3); 								// 1 - Mapping Name, 2 - Numeric Key, 3 - Position
+SET eIfNull									= if(IsNull($1),$2,$1);
+SET eMonthsDiff								= Num(((Year($2) * 12) + Month($2)) - (((Year($1) * 12) + Month($1))));
+SET eNumRemLeftZeros						= Num(Num#(Replace(LTrim(Replace($1,'0',' ')),' ','0')));
+
+SET cFlagRed							    = RGB(206,   0,   0);//More Pink-ish: RGB(252, 100,  98);
+SET cFlagYellow								= RGB(255, 205,   5);//RGB(243, 232,   1);
+SET cFlagGreen								= RGB(	0, 128,   0);//RGB(187,216,84);
+SET cFlagGray								= RGB(128, 128, 128);
+
+
