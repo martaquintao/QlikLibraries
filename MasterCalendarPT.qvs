@@ -123,8 +123,9 @@ LET vSetLimparFiltrosData 	= 	'%IDAnoMes 				= ,' & Chr(10) &
 LET vSetYTD 				= 	'%IDAnoMes 				= {"<=' & Chr(36) & '(=Max(%IDAnoMes))"},' & Chr(10) &
 								'Data 					= {"<=' & Chr(36) & '(=Max(Data))"},' & Chr(10) &
 								Chr(36) & '(vTipoAno) 	= {' & Chr(36) & '(=Max('& Chr(36) & '(vTipoAno)))},' & Chr(10) &
+								'Trimestre				= ,' & Chr(10) &
+								'TrimestreCurto			= ,' & Chr(10) &
 								'Semana 				= ,' & Chr(10) &
-								'Trimestre 				= ,' & Chr(10) &
 								'AnoMesNum 			    = ,' & Chr(10) &
 								'MesDesc				= ,' & Chr(10) & 
 								'MesDescCurta			= ,' & Chr(10) & 
@@ -134,6 +135,7 @@ LET vSetAnoAnteriorYTD 		= 	'%IDAnoMes 				= {"<=' & Chr(36) & '(=Max(%IDAnoMes)
 								Chr(36) & '(vTipoAno) 	= {' & Chr(36) & '(=Max('& Chr(36) & '(vTipoAno))-1)},' & Chr(10) &
 								'Semana		 			= ,' & Chr(10) &
 								'Trimestre 				= ,' & Chr(10) &
+								'TrimestreCurto			= ,' & Chr(10) &
 								'AnoMesNum 				= ,' & Chr(10) &
 								'MesDesc				= ,' & Chr(10) & 
 								'MesDescCurta			= ,' & Chr(10) & 
@@ -143,6 +145,7 @@ LET vSetMesAnteriorYTD 		= 	'%IDAnoMes 				= {"<=' & Chr(36) & '(=Max(%IDAnoMes)
 								Chr(36) & '(vTipoAno) 	= {' & Chr(36) & '(=Max('& Chr(36) & '(vTipoAno)))},' & Chr(10) &
 								'Semana		 			= ,' & Chr(10) &
 								'Trimestre 				= ,' & Chr(10) &
+								'TrimestreCurto			= ,' & Chr(10) &
 								'AnoMesNum 				= ,' & Chr(10) &
 								'MesDesc				= ,' & Chr(10) & 
 								'MesDescCurta			= ,' & Chr(10) & 
