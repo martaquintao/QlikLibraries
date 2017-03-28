@@ -16,29 +16,30 @@ SET _Mode = 1; // Just to be safe!
 // _DMFolder: Path/lib to the folder that holds data model
 // _Qlik: 1 - Qlik Sense | 2 - QlikView
 // Usage:
-//		SET vCaminhoScripts 						= 'BIScripts$(vSetEnv)/';
-//		SET vCaminhoRecursos 						= 'BIDataResources$(vSetEnv)/';
-//		SET vCaminhoQVDDados						= 'BIStagingArea$(vSetEnv)/';
-//		SET vCaminhoQVDModelo 						= 'BIDataModelArea$(vSetEnv)/';
+//		SET vCaminhoScripts 						= 'BIScripts$(vSetEnv)/';			/ 	'0_Scripts\';
+//		SET vCaminhoRecursos 						= 'BIDataResources$(vSetEnv)/';		/	'1_DataResources\';
+//		SET vCaminhoQVDDados						= 'BIStagingArea$(vSetEnv)/';		/	'2_Staging\';
+//		SET vCaminhoQVDModelo 						= 'BIDataModelArea$(vSetEnv)/';		/	'3_DataModel';
 //
 // 		Call SetMode(2,vCaminhoRecursos,vCaminhoQVDDados,vCaminhoQVDModelo,1);
 // ----------------------------------------------------------------------------------------------------------
 SUB SetMode(_Mode,_ResourceFolder,_StgFolder,_DMFolder,_Qlik)
 	
-	LET _PathStart						= If(_Qlik = 2,'..','lib:/');
+	LET _PathStart						= If(_Qlik = 2,'..\','lib:/');
+	LET Separator						= If(_Qlik = 2,'\','/');
 
-	LET eResourcesPath					= '$(_PathStart)/$(_ResourceFolder)$1';
+	LET eResourcesPath					= '$(_PathStart)$(Separator)$(_ResourceFolder)$1';
 	IF _Mode = 1 THEN
-		LET eStagingPath				= '$(_PathStart)/$(_StgFolder)$1.qvd';
+		LET eStagingPath				= '$(_PathStart)$(Separator)$(_StgFolder)$1.qvd';
         SET vReadFolderVariable			= 'eResourcesPath';
     	SET vStorageFolderVariable		= 'eStagingPath';
     ELSEIF _Mode = 2 THEN
-		LET eStagingPath				= '$(_PathStart)/$(_StgFolder)$1.qvd';
-		LET eDataModelPath				= '$(_PathStart)/$(_DMFolder)$1.qvd';
+		LET eStagingPath				= '$(_PathStart)$(Separator)$(_StgFolder)$1.qvd';
+		LET eDataModelPath				= '$(_PathStart)$(Separator)$(_DMFolder)$1.qvd';
         SET vReadFolderVariable			= 'eStagingPath';
     	SET vStorageFolderVariable		= 'eDataModelPath';
     ELSEIF _Mode = 3 THEN
-		LET eDataModelPath				= '$(_PathStart)/$(_DMFolder)$1.qvd';
+		LET eDataModelPath				= '$(_PathStart)$(Separator)$(_DMFolder)$1.qvd';
         SET vReadFolderVariable			= 'eDataModelPath';
     	SET vStorageFolderVariable		= 'eDataModelPath';
     END IF;

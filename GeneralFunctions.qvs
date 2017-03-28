@@ -44,13 +44,14 @@ END SUB;
 // _DescriptionColumn: Column name where the description of the variable is stored
 // Usage: Just call it to load variables
 // ----------------------------------------------------------------------------------------------------------
-SUB LoadVariablesFile(_vVariablesSource, _NameColumn, _DefinitionColumn,_DescriptionColumn)
+SUB LoadVariablesFile(_vVariablesSource, _NameColumn, _DefinitionColumn,_DescriptionColumn,_FlagColumn)
 	
 	Variables:
 	LOAD 
 		$(_NameColumn)								as Name, 
 		$(_DefinitionColumn)						as Definition, 
-		$(_DescriptionColumn)						as Description
+		$(_DescriptionColumn)						as Description, 
+		$(_FlagColumn)								as _Tecnical
 	FROM [$(eResourcesPath($(_vVariablesSource).xlsx))]
 	(ooxml, embedded labels, table is $(_vVariablesSource));
 
