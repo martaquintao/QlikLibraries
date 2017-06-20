@@ -1,0 +1,362 @@
+// Setting The Master Calendar - PT Version
+
+// This script will provide a funcion for setting a Master calendar (Civil and Fiscal Year)
+// on a given factual table name.
+// The corrensponding set analysis for Civil and fiscal years will be made availlable at calling
+// CHANGE LOG: (Feel free to change AND LOG!)
+// 		2017.04.11 - Creation!
+// ------------------------------------------------------------------------------------------------------------------------------
+
+//Set Variables
+SET vIgnoreDimensions 				= ;
+SET vOffsetInitialFiscalYearMonth 	= -6;
+
+SUB SetMasterCalendar(_vFactName,_CreateAsOf)
+
+	TempDateInterval:
+	LOAD Num(Min(%DateID)) as DateMin,
+		 Num(Max(%DateID)) as DateMax
+	RESIDENT $(_vFactName)
+	WHERE Not(IsNull(Date#(%DateID)));
+
+	LET vDateMin = peek('DateMin', 0, 'TempDateInterval');
+	LET vDateMax = peek('DateMax', 0, 'TempDateInterval');
+
+	//LET vDateMax = Num(MakeDate(2017,12));
+
+	DROP TABLE TempDateInterval;
+
+	TempCalendar:
+	LOAD $(vDateMin) + RowNo() - 1 			as %ID_Date,
+		 Date($(vDateMin) + RowNo() - 1)	as Date
+	AUTOGENERATE $(vDateMax) - $(vDateMin) + 1;
+	
+	//Call StoreTable('TempCalendar',0)
+
+	LET vYearType = '=If(YearTypeCode = ' & chr(39) & 'F' & chr(39) & ',' & chr(39) & 'FiscalYear' & chr(39) & ',' & chr(39) & 'Year' & chr(39) & ')';
+	
+	Calendar:
+	LOAD Date(%ID_Date)										as %DateID,
+		 AutoNumber(Year(Date)&'|'&Num(Month(Date)))		as %YearMonthID,
+		 AutoNumber(Year(Date)&'|'&Ceil(Month(Date) / 3))	as %YearQuarterID,
+		 Date,
+		 Day(Date) 											as Day,
+		 Week(Date)											as Week,
+		 Num(WeekDay(Date))									as WeekDay,
+		 WeekDay(Date)										as WeekDayDesc,
+		 Week(Date)&'-'&Year(Date)							as WeekYear,
+		 Div(Day(Date)+6,7) 								as WeekMonth,
+		 Month(Date)										as Month,
+		 Num(Month(Date))									as MonthNum,
+		 Capitalize(Date(Date,'MMMM'))						as MonthDesc,
+		 Capitalize(Date(Date,'MMM'))						as MonthDescShort,
+		 'F ' & Ceil(Month(Date)/4) 						as FourMonths,
+		 Ceil(Month(Date) / 4)&'º F' 						as FourMonthsAlternative,
+		 Ceil(Month(Date) / 3)								as Quarter,
+		 Ceil(Month(Date) / 3)&'º Quarter'					as QuarterShort,
+		 Ceil(Month(Date) / 3)&'º Q'						as QuarterDescShort,
+		 Num(Date(Date,'YYYYMM')&'')						as YearMonthNum,
+		 Date(Date,'YYYY-MM')								as YearMonth,
+		 Year(Date)&'-'&Capitalize(date(Date,'MMMM'))		as YearMonthDesc,
+		 Year(Date)&'-'&Capitalize(date(Date,'MMM'))		as YearMonthDescShort,
+		 Date(Date,'MM-YYYY')								as YearMonthAlternative,
+		 Capitalize(Date(Date,'MMMM'))&'-'&Year(Date)		as YearMonthDescAlternative,
+		 Capitalize(Date(Date,'MMM'))&'-'&Year(Date)		as YearMonthDescAlternativeShort,
+		 Year(Date)											as Year,
+		 Year(AddMonths(Date,$(vOffsetInitialFiscalYearMonth)))	as FiscalYear
+	RESIDENT TempCalendar
+	ORDER BY Date ASC;
+
+	DROP TABLE TempCalendar;
+	//CALL StoreTable('Calendar',0);
+
+	// This section is manual, but Comment and/or Uncomment to choose as of version(s)
+	IF _CreateAsOf = 1 THEN
+		//Date as Of
+		AsOfDateYearMonth: //TTD
+//		LOAD DISTINCT	
+//			 %YearMonthID - IterNo()+1							as %YearMonthID
+//			 ,%YearMonthID										as DisplayYearMonthID
+//			 ,YearMonthNum										as DisplayYearMonthNum
+//			 ,YearMonthDesc										as DisplayYearMonthDesc
+//			 ,YearMonthDescShort								as DisplayYearMonthDescShort
+//			 ,MonthNum											as DisplayMonthNum
+//			 ,MonthDesc											as DisplayMonthDesc
+//			 ,MonthDescShort									as DisplayMonthDescShort
+//			 ,Year												as DisplayYear
+//			 ,1													as DisplayCalendarTTD
+//			 ,0													as DisplayCalendarYTD
+//		RESIDENT Calendar
+//		WHILE 1 + IterNo() <= %YearMonthID;
+//
+//		Concatenate(AsOfDateYearMonth) //YTD
+		LOAD DISTINCT	
+			 %YearMonthID - IterNo()+1							as %YearMonthID
+			 ,%YearMonthID										as DisplayYearMonthID
+			 ,YearMonthNum										as DisplayYearMonthNum
+			 ,YearMonthDesc										as DisplayYearMonthDesc
+			 ,YearMonthDescShort								as DisplayYearMonthDescShort
+			 ,MonthNum											as DisplayMonthNum
+			 ,MonthDesc											as DisplayMonthDesc
+			 ,MonthDescShort									as DisplayMonthDescShort
+			 ,Year												as DisplayYear
+			 ,0													as DisplayCalendarTTD
+			 ,1													as DisplayCalendarYTD
+		RESIDENT Calendar
+		WHILE MonthNum - IterNo() +1 > 0;
+	END IF;
+	
+END SUB;
+
+//******** CLEAN DATE FILTERS ********
+LET vSetCleanDateFilters 	= 	'%YearMonthID 					= ,' & Chr(10) &
+								'Date 							= ,' & Chr(10) &
+								Chr(36) & '(vYearType)			= ,' & Chr(10) &
+								'Week 							= ,' & Chr(10) &
+								'Quarter 						= ,' & Chr(10) &
+								'QuarterShort 					= ,' & Chr(10) &
+								'YearMonthNum 					= ,' & Chr(10) &
+								'MonthDesc						= ,' & Chr(10) & 
+								'MonthDescShort					= ,' & Chr(10) & 
+                                'Month 							=';
+//*************** YEAR ***************
+LET vSetYTD 				= 	'%YearMonthID 					= {"<=' & Chr(36) & '(=Max(%YearMonthID))"},' & Chr(10) &
+								'Date 							= {"<=' & Chr(36) & '(=Max(Date))"},' & Chr(10) &
+								Chr(36) & '(vYearType) 			= {' & Chr(36) & '(=Max('& Chr(36) & '(vYearType)))},' & Chr(10) &
+								'Quarter						= ,' & Chr(10) &
+								'QuarterShort					= ,' & Chr(10) &
+								'Week 							= ,' & Chr(10) &
+								'YearMonthNum 			    	= ,' & Chr(10) &
+								'MonthDesc						= ,' & Chr(10) & 
+								'MonthDescShort					= ,' & Chr(10) & 
+                                'Month =';
+			  
+LET vSetPreviousYearYTD 		= 	'%YearMonthID 				= {"<=' & Chr(36) & '(=Max(%YearMonthID) - 12)"},' & Chr(10) &
+								Chr(36) & '(vYearType) 			= {' & Chr(36) & '(=Max('& Chr(36) & '(vYearType))-1)},' & Chr(10) &
+								'Week		 					= ,' & Chr(10) &
+								'Quarter 						= ,' & Chr(10) &
+								'QuarterShort 					= ,' & Chr(10) &
+								'YearMonthNum 					= ,' & Chr(10) &
+								'MonthDesc						= ,' & Chr(10) & 
+								'MonthDescShort					= ,' & Chr(10) & 
+                                'Month =';
+			  
+LET vSetMaxYear 				= 	Chr(36) & '(vYearType) 	= {' & Chr(36) & '(=Max('& Chr(36) & '(vYearType)))}';
+
+LET vSetMaxPreviousYear			= 	Chr(36) & '(vYearType) 	= {' & Chr(36) & '(=Max('& Chr(36) & '(vYearType))-1)}';
+
+//*************** Quarter ***************
+
+LET vSetQTD 				=	'%YearMonthID 					= {"<=' & Chr(36) & '(=Max(%YearMonthID))"},' & Chr(10) &
+								'Quarter 						= {' & Chr(36) & '(=Max(Quarter))},' & Chr(10) &				
+								'Date 							= {"<=' & Chr(36) & '(=Max(Date))"},' & Chr(10) &
+								Chr(36) & '(vYearType) 			= {' & Chr(36) & '(=Max('& Chr(36) & '(vYearType)))},' & Chr(10) &
+								'QuarterShort					= ,' & Chr(10) &
+								'YearMonthNum 					= ,' & Chr(10) &
+								'Week 							= ,' & Chr(10) &
+								'MonthDesc						= ,' & Chr(10) & 
+								'MonthDescShort					= ,' & Chr(10) & 
+                                'Month =';
+				
+LET vSetPreviousQuarterQTD = 	'%YearMonthID 					= {"<=' & Chr(36) & '(=Max(%YearMonthID))"},' & Chr(10) &
+								'Quarter  						= {' & Chr(36) & '(=Max(Quarter) - 1)},' & Chr(10) &
+								Chr(36) & '(vYearType) 			= {' & Chr(36) & '(=Max('& Chr(36) & '(vYearType)))},' & Chr(10) &
+								'QuarterShort					= ,' & Chr(10) &
+								'Date 							= ,' & Chr(10) &
+								'YearMonthNum 					= ,' & Chr(10) &
+								'Week 							= ,' & Chr(10) &
+								'MonthDesc						= ,' & Chr(10) & 
+								'MonthDescShort					= ,' & Chr(10) & 
+                                'Month =';
+
+LET vSetPreviousYearQTD 		= 	'%YearMonthID 				= {"<=' & Chr(36) & '(=Max(%YearMonthID))"},' & Chr(10) &
+								'Quarter 						= {' & Chr(36) & '(=Max(Quarter) - 4)},' & Chr(10) &
+								Chr(36) & '(vYearType) 			= ,' & Chr(10) &
+								'QuarterShort					= ,' & Chr(10) &
+								'YearMonthNum 					= ,' & Chr(10) &
+								'Week 							= ,' & Chr(10) &
+								'MonthDesc						= ,' & Chr(10) & 
+								'MonthDescShort					= ,' & Chr(10) & 
+                                'Month =';
+
+LET vSetQTP 				=	'%YearMonthID 					= {"<=' & Chr(36) & '(=Max(%YearMonthID))"},' & Chr(10) &
+								'Quarter 						= P(Quarter),' & Chr(10) &				
+								'Date 							= {"<=' & Chr(36) & '(=Max(Date))"},' & Chr(10) &
+								Chr(36) & '(vYearType) 			= {' & Chr(36) & '(=Max('& Chr(36) & '(vYearType)))},' & Chr(10) &
+								'QuarterShort					= ,' & Chr(10) &
+								'YearMonthNum 					= ,' & Chr(10) &
+								'Week 							= ,' & Chr(10) &
+								'MonthDesc						= ,' & Chr(10) & 
+								'MonthDescShort					= ,' & Chr(10) & 
+                                'Month =';
+
+//*************** MONTH ***************
+				
+LET vSetMTD 				= 	'%YearMonthID 					= {' & Chr(36) & '(=Max(%YearMonthID))},' & Chr(10) &
+								'Date 							= {"<=' & Chr(36) & '(=Max(Date))"},' & Chr(10) &
+								'Week 							= ,' & Chr(10) &
+								Chr(36) & '(vYearType) 			= ,' & Chr(10) &
+								'Quarter 						= ,' & Chr(10) &
+								'QuarterShort 					= ,' & Chr(10) &
+								'YearMonthNum 					= ,' & Chr(10) &
+								'MonthDesc						= ,' & Chr(10) & 
+								'MonthDescShort					= ,' & Chr(10) & 
+                                'Month 							=';
+
+
+LET vSetPreviousMonthMTD 		= 	'%YearMonthID 				= {' & Chr(36) & '(=Max(%YearMonthID) - 1)},' & Chr(10) &
+								'Day 							= {"<=' & Chr(36) & '(=Max(' & Chr(36) & '(vSetMTD) Day))"},' & Chr(10) &
+								'Date 							= ,' & Chr(10) &				
+								Chr(36) & '(vYearType) 			= ,' & Chr(10) &
+								'Quarter 						= ,' & Chr(10) &
+								'QuarterShort 					= ,' & Chr(10) &
+								'Week 							= ,' & Chr(10) & 
+								'YearMonthNum 					= ,' & Chr(10) &
+								'Month 							=';
+
+LET vSetPreviousYearMTD 		= 	'%YearMonthID 				= {' & Chr(36) & '(=Max(%YearMonthID) - 12)},' & Chr(10) &
+								Chr(36) & '(vYearType) 			= {' & Chr(36) & '(=Max('& Chr(36) & '(vYearType))-1)},' & Chr(10) &
+								'Week 							= ,' & Chr(10) &
+								'Quarter 						= ,' & Chr(10) &
+								'QuarterShort 					= ,' & Chr(10) &
+								'YearMonthNum 					= ,' & Chr(10) &
+								'MonthDesc						= ,' & Chr(10) & 
+								'MonthDescShort					= ,' & Chr(10) & 
+                                'Month =';
+
+LET vSetCompleteMTD			= 	'%YearMonthID 					= {' & Chr(36) & '(=Max(%YearMonthID))},' & Chr(10) &
+								Chr(36) & '(vYearType) 			= {' & Chr(36) & '(=Max('& Chr(36) & '(vYearType)))},' & Chr(10) &
+								'Day 							= ,' & Chr(10) &
+								'Week 							= ,' & Chr(10) &
+								'Quarter 						= ,' & Chr(10) &
+								'QuarterShort 					= ,' & Chr(10) &
+								'YearMonthNum 					= ,' & Chr(10) &
+								'Month 							=';
+
+LET vSetPreviousYearFullMTD = 	'%YearMonthID 					= {' & Chr(36) & '(=Max({<$(vIgnoreDimensions)>}%YearMonthID) - 12)},' & Chr(10) &
+								Chr(36) & '(vYearType) 			= {' & Chr(36) & '(=Max('& Chr(36) & '(vYearType))-1)},' & Chr(10) &
+								'Day 							= ,' & Chr(10) &
+								'Week 							= ,' & Chr(10) &
+								'Quarter 						= ,' & Chr(10) &
+								'QuarterShort 					= ,' & Chr(10) &
+								'YearMonthNum 					= ,' & Chr(10) &
+								'MonthDesc						= ,' & Chr(10) & 
+								'MonthDescShort					= ,' & Chr(10) & 
+                                'Month 							=';
+			  
+LET vSetPreviousMonthYTD 		= 	'%YearMonthID 				= {"<=' & Chr(36) & '(=Max(%YearMonthID) - 1)"},' & Chr(10) &
+								Chr(36) & '(vYearType) 			= {' & Chr(36) & '(=Max('& Chr(36) & '(vYearType)))},' & Chr(10) &
+								'Week		 					= ,' & Chr(10) &
+								'Quarter 						= ,' & Chr(10) &
+								'QuarterShort 					= ,' & Chr(10) &
+								'YearMonthNum 					= ,' & Chr(10) &
+								'MonthDesc						= ,' & Chr(10) & 
+								'MonthDescShort					= ,' & Chr(10) & 
+                                'Month =';
+
+//*************** WEEK ***************
+
+LET vSetWTD 				= 	'Week 							= {' & Chr(36) & '(=Max(Week))},' & Chr(10) &
+								'Date 							= {"<=' & Chr(36) & '(=Max(Date))"},' & Chr(10) &
+								Chr(36) & '(vYearType) 			= {' & Chr(36) & '(=Max('& Chr(36) & '(vYearType)))},' & Chr(10) &
+								'Quarter 						= ,' & Chr(10) &
+								'QuarterShort 					= ,' & Chr(10) &
+								'YearMonthNum 					= ,' & Chr(10) &
+								'MonthDesc						= ,' & Chr(10) & 
+								'MonthDescShort					= ,' & Chr(10) & 
+                                'Month 							=';
+
+LET vSetPreviousWeekWTD	= 	'Week 								= {' & Chr(36) & '(=Max(Week)-1)},' & Chr(10) &
+								Chr(36) & '(vYearType) 			= {' & Chr(36) & '(=Max('& Chr(36) & '(vYearType)))},' & Chr(10) &
+								'Quarter 						= ,' & Chr(10) &
+								'QuarterShort 					= ,' & Chr(10) &
+								'YearMonthNum 					= ,' & Chr(10) &
+								'MonthDesc						= ,' & Chr(10) & 
+								'MonthDescShort					= ,' & Chr(10) & 
+                                'Month 							=';
+
+LET vSetPreviousYearWTD 		= 	'Week 						= {' & Chr(36) & '(=Max(Week))},' & Chr(10) &
+								Chr(36) & '(vYearType) 			= {' & Chr(36) & '(=Max('& Chr(36) & '(vYearType))-1)},' & Chr(10) &
+								'Quarter 						= ,' & Chr(10) &
+								'QuarterShort 					= ,' & Chr(10) &
+								'YearMonthNum 					= ,' & Chr(10) &
+								'MonthDesc						= ,' & Chr(10) & 
+								'MonthDescShort					= ,' & Chr(10) & 
+                                'Month 							=';
+		
+//*************** OTHERS ***************
+
+LET vSetTotalToDateTTD 		= 	'%YearMonthID 					= ,' & Chr(10) &
+								'Date 							= {"<=' & Chr(36) & '(=Max(Date))"},' & Chr(10) &		
+								Chr(36) & '(vYearType) 			= ,' & Chr(10) &
+								'Quarter 						= ,' & Chr(10) &
+								'QuarterShort 					= ,' & Chr(10) &
+								'Week 							= ,' & Chr(10) &
+								'YearMonthNum 					= ,' & Chr(10) &
+								'MonthDesc						= ,' & Chr(10) & 
+								'MonthDescShort					= ,' & Chr(10) & 
+                                'Month 							=';
+				
+LET vSetPreviousYearTTD 		= 	'%YearMonthID 				= {"<=' & Chr(36) & '(=Max(%YearMonthID) - 12)"},' & Chr(10) &
+								Chr(36) & '(vYearType) 			= ,' & Chr(10) &
+								'Quarter 						= ,' & Chr(10) &
+								'QuarterShort 					= ,' & Chr(10) &
+								'YearMonthNum 					= ,' & Chr(10) &
+								'Week 							= ,' & Chr(10) & 
+								'MonthDesc						= ,' & Chr(10) & 
+								'MonthDescShort					= ,' & Chr(10) & 
+                                'Month 							=';
+				
+LET vSetRolling12 			= 	'%YearMonthID 					= {">=' & Chr(36) & '(=Max(%YearMonthID) - 11)<=' & Chr(36) & '(=Max(%YearMonthID))"},' & Chr(10) &
+								'Date 							= {"<=' & Chr(36) & '(=Max(Date))"},' & Chr(10) &
+								Chr(36) & '(vYearType) 			= ,' & Chr(10) &
+								'Quarter 						= ,' & Chr(10) &
+								'QuarterShort 					= ,' & Chr(10) &
+								'YearMonthNum 					= ,' & Chr(10) &
+								'Week 							= ,' & Chr(10) & 
+								'MonthDesc						= ,' & Chr(10) & 
+								'MonthDescShort					= ,' & Chr(10) & 
+                                'Month 							=';
+				
+LET vSetPreviousRolling12	= 	'%YearMonthID 					= {">=' & Chr(36) & '(=Max(%YearMonthID) - 23)<=' & Chr(36) & '(=Max(%YearMonthID)-12)"},' & Chr(10) &
+								'Date 							=  ,' & Chr(10) &		
+								Chr(36) & '(vYearType) 			= {"<=' & Chr(36) & '(=Max('& Chr(36) & '(vYearType))-1)"},' & Chr(10) &
+								'Quarter 						= ,' & Chr(10) &
+								'QuarterShort 					= ,' & Chr(10) &
+								'YearMonthNum 					= ,' & Chr(10) &
+								'Week	 						= ,' & Chr(10) & 
+								'MonthDesc						= ,' & Chr(10) & 
+								'MonthDescShort					= ,' & Chr(10) & 
+                                'Month =';
+				
+LET vSetCompleteYear			= 	'%YearMonthID 				= ,' & Chr(10) &
+								Chr(36) & '(vYearType) 			= {' & Chr(36) & '(=Max('& Chr(36) & '(vYearType)))},' & Chr(10) &
+								'Quarter 						= ,' & Chr(10) &
+								'QuarterShort 					= ,' & Chr(10) &
+								'Week 							= ,' & Chr(10) & 
+								'YearMonthNum 					= ,' & Chr(10) &
+								'MonthDesc						= ,' & Chr(10) & 
+								'MonthDescShort					= ,' & Chr(10) & 
+                                'Month 							=';
+				
+LET vSetCompleteYearTTD		= 	'%YearMonthID 					= ,' & Chr(10) &
+								Chr(36) & '(vYearType) 			= {"<=' & Chr(36) & '(=Max('& Chr(36) & '(vYearType)))"},' & Chr(10) &
+								'Quarter 						= ,' & Chr(10) &
+								'QuarterShort 					= ,' & Chr(10) &
+								'Week 							= ,' & Chr(10) & 
+								'YearMonthNum 					= ,' & Chr(10) &
+								'MonthDesc						= ,' & Chr(10) & 
+								'MonthDescShort					= ,' & Chr(10) & 
+                                'Month 							=';
+				
+LET vSetCompletePreviousYear = 	'%YearMonthID 					= ,' & Chr(10) &
+								Chr(36) & '(vYearType) 			= {' & Chr(36) & '(=Max('& Chr(36) & '(vYearType))-1)},' & Chr(10) &
+								'Quarter 						= ,' & Chr(10) &
+								'QuarterShort 					= ,' & Chr(10) &
+								'Week 							= ,' & Chr(10) & 
+								'YearMonthNum 					= ,' & Chr(10) &
+								'MonthDesc						= ,' & Chr(10) &
+								'MonthDescShort					= ,' & Chr(10) & 
+								'Month 							=';
+
+								

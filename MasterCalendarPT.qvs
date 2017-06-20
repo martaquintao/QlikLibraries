@@ -87,6 +87,7 @@ SUB SetMasterCalendar(_vFactName,_CreateAsOf)
 //			 ,Ano												as DisplayAno
 //			 ,1													as DisplayCalendarioTTD
 //			 ,0													as DisplayCalendarioYTD
+//			 ,0													as DisplayCalendarioRolling12
 //		RESIDENT Calendario
 //		WHILE 1 + IterNo() <= %IDAnoMes;
 //
@@ -103,8 +104,26 @@ SUB SetMasterCalendar(_vFactName,_CreateAsOf)
 			 ,Ano												as DisplayAno
 			 ,0													as DisplayCalendarioTTD
 			 ,1													as DisplayCalendarioYTD
+			 ,0													as DisplayCalendarioRolling12
 		RESIDENT Calendario
 		WHILE MesNum - IterNo() +1 > 0;
+		
+		Concatenate(AsOfDDataAnoMes) //Rolling12
+		LOAD DISTINCT	
+			 %IDAnoMes - IterNo()+1								as %IDAnoMes
+			 ,%IDAnoMes											as DisplayIDAnoMes
+			 ,AnoMesNum											as DisplayAnoMesNum
+			 ,AnoMesDesc										as DisplayAnoMesDesc
+			 ,AnoMesDescCurta									as DisplayAnoMesDescCurta
+			 ,MesNum											as DisplayMesNum
+			 ,MesDesc											as DisplayMesDesc
+			 ,MesDescCurta										as DisplayMesDescCurta
+			 ,Ano												as DisplayAno
+			 ,0													as DisplayCalendarioTTD
+			 ,0													as DisplayCalendarioYTD
+			 ,1													as DisplayCalendarioRolling12
+		RESIDENT Calendario
+		WHILE IterNo() < 12;
 	END IF;
 	
 END SUB;
